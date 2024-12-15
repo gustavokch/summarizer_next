@@ -1,5 +1,9 @@
 /api_key
-/transcription_db.sqlite
-/venv
+venv
 /backend/__pycache__
 /uploads
+/frontend
+.vscode/launch.json
+/backend/venv
+/backend/api_key
+/backend/transcription_db.sqlite

@@ -1,4 +1,5 @@
 import os
+import pathlib
 import uuid
 from datetime import datetime, timedelta
 from templates import system_prompt, summarize_prompt
@@ -61,6 +62,7 @@ class TranscriptionTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, ForeignKey('user_sessions.session_id'))
     video_url = Column(String, index=True)
+    video_title = Column(String)
     audio_path = Column(String)
     transcription = Column(Text)
     summary = Column(Text)
@@ -76,6 +78,7 @@ class TranscriptionRequest(BaseModel):
 class TranscriptionResponse(BaseModel):
     task_id: str
     video_url: str
+    video_title: str
     transcription: str
     summary: str
 
@@ -147,22 +150,53 @@ def extract_audio(url: str) -> str:
     
     return audio_file
 
+def extract_title(url: str) -> str:
+    """Extract audio from YouTube video."""
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'opus',
+        }],
+        'outtmpl': os.path.join(UPLOAD_DIRECTORY, '%(title)s.%(ext)s')
+    }
+    
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=False)
+        video_title = info_dict.get('title', None)
+    
+    return video_title
+
 def transcribe_audio(audio_path: str) -> str:
     """Transcribe audio using Gemini."""
     if not genai:
         return "Transcription service is currently unavailable."
     
     try:
-        model = genai.GenerativeModel('models/gemini-2.0-flash-exp')
-        genai_file = genai.upload_file(path=f"{audio_path}")
-    #       audio_bytes = audio_file.read()
-        response = model.generate_content(
-                [system_prompt, genai_file],
-                generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.1
-                )
-        )     
-        return response.text
-    
+        file_size = os.path.getsize(f"{audio_path}")
+        if file_size > 20971520:
+            model = genai.GenerativeModel('models/gemini-2.0-flash-exp')
+            genai_file = genai.upload_file(path=f"{audio_path}")
+            response = model.generate_content(
+                    [system_prompt, genai_file],
+                    generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.1
+                    )
+            )     
+            return response.text
+        else: 
+            model = genai.GenerativeModel('models/gemini-2.0-flash-exp')
+            genai_file = genai.upload_file(path=f"{audio_path}")
+            response = model.generate_content(
+                    [system_prompt,
+                    {
+                        "mime_type": "audio/ogg",
+                        "data": pathlib.Path(f"{audio_path}").read_bytes()
+                    }
+                    ],
+                    generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.1
+                    )
+            )     
+            return response.text    
     except Exception as e:
         print(f"Transcription error: {e}")
         return f"Transcription failed: {str(e)}"
@@ -175,8 +209,8 @@ def summarize_text(text: str) -> str:
     try:
         model = genai.GenerativeModel('models/gemini-2.0-flash-exp',system_instruction=summarize_prompt)
         response = model.generate_content(
-            f"Provide a concise summary of this text: {text}",
-            generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.1
+            f"{text}",
+            generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.3
             )
         )
         return response.text
@@ -221,17 +255,21 @@ async def transcribe_youtube_video(
         
         # Extract audio
         audio_path = extract_audio(transcription_request.youtube_url)
-        
+        video_title = extract_title(transcription_request.youtube_url)
         # Transcribe
+        print("Transcribing audio...")
         transcription = transcribe_audio(audio_path)
+        print("Audio transcribed!")
         
         # Summarize
+        print("Summarizing text...")
         summary = summarize_text(transcription)
-        
+        print("Text summarized!")        
         # Store task in database
         task = TranscriptionTask(
             session_id=session_id,
             video_url=transcription_request.youtube_url,
+            video_title=video_title,
             audio_path=audio_path,
             transcription=transcription,
             summary=summary
@@ -244,6 +282,7 @@ async def transcribe_youtube_video(
         return TranscriptionResponse(
             task_id=str(task.id),
             video_url=transcription_request.youtube_url,
+            video_title=video_title,
             transcription=transcription,
             summary=summary
         )
@@ -268,10 +307,12 @@ async def get_user_tasks(
         TranscriptionResponse(
             task_id=str(task.id),
             video_url=task.video_url,
+            video_title=task.video_title,
             transcription=task.transcription,
             summary=task.summary
         ) for task in tasks
     ]
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8090)
