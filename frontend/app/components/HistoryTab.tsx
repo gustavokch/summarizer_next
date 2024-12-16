@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { fetchUserTasks, deleteTask } from '../services/api';
 import { TranscriptionTask } from '../types';
 import ReactMarkdown from 'react-markdown';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { Button } from "./ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
+import { Button } from "../ui/button";
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { toast } from "sonner"; // Assuming you're using a toast library
 
