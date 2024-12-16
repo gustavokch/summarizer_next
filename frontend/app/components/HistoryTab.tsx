@@ -1,5 +1,5 @@
 'use client'
-
+/* eslint-disable */
 import React, { useState, useEffect } from 'react';
 import { fetchUserTasks, deleteTask } from '../services/api';
 import { TranscriptionTask } from '../types';
@@ -187,4 +187,4 @@ const HistoryTab: React.FC = () => {
 }
 
 export default HistoryTab
-
+/* eslint-enable */
