@@ -102,7 +102,7 @@ const HistoryTab: React.FC = () => {
                 `}
               >
                 <div className="font-semibold flex items-center justify-between">
-                  <span>{task.task_id}. {task.video_title}</span>
+                  <span>{task.video_title}</span>
                   
                   {/* Delete Button */}
                   {hoverTaskId === task.task_id && (

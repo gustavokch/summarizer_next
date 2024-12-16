@@ -29,13 +29,17 @@ except ImportError:
     genai = None
 
 # Configuration and Environment Variables
-with open(f"api_key", "r") as f:
-    GEMINI_API_KEY = str(f.readline())
-    print("API Key: "+GEMINI_API_KEY)
+load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./transcription_db.sqlite')
-#GEMINI_API_KEY = os.getenv('GOOGLE_API_KEY', '')
+GEMINI_API_KEY = os.getenv('GOOGLE_API_KEY', 'Not set')
 UPLOAD_DIRECTORY = os.getenv('UPLOAD_DIRECTORY', './uploads')
-
+if os.getenv('GOOGLE_API_KEY') == 'Not set':
+    with open(f"api_key", "r") as f:
+        GEMINI_API_KEY = str(f.readline())
+        print("Key read from api_key: "+str(f.readline()))
+        os.environ['GOOGLE_API_KEY'] = str(f.readline())
+        
+print("API Key: "+str(os.getenv('GOOGLE_API_KEY')))
 # Ensure upload directory exists
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 

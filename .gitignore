@@ -11,3 +11,4 @@ venv
 /backend/transcription_db.sqlite
 frontend.zip
 transcription_db.sqlite
+backend/.env
