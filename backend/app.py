@@ -93,12 +93,16 @@ class TranscriptionResponse(BaseModel):
 app = FastAPI(title="Video Transcription Service")
 
 # CORS Middleware
+origins = [
+    "http://localhost:3000",  # Add your Next.js app's URL
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,  # Origins that are allowed to access your backend
+    allow_credentials=True,  # Allow cookies to be sent
+    allow_methods=["*"],  # HTTP methods allowed
+    allow_headers=["*"],  # HTTP headers allowed
 )
 
 # Dependency to get database session

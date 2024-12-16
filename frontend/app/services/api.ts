@@ -1,8 +1,6 @@
 // services/api.ts
 import axios from 'axios';
 import { TranscriptionTask, TranscribeResponse } from '../types';
-//const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-//const API_BASE_URL = '/api';  // Now points to Next.js API route
 const API_BASE_URL = 'http://localhost:8090'; // Adjust to your FastAPI backend URL
 
 export const transcribeVideo = async (youtubeUrl: string): Promise<TranscribeResponse> => {
