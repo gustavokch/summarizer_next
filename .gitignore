@@ -2,7 +2,8 @@
 venv
 /backend/__pycache__
 /uploads
-/frontend
+/frontend/.next
+/frontend/node_modules
 .vscode/launch.json
 /backend/venv
 /backend/uploads

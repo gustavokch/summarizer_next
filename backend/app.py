@@ -150,25 +150,9 @@ def extract_audio(url: str) -> str:
         info_dict = ydl.extract_info(url, download=True)
         audio_file = ydl.prepare_filename(info_dict)
         audio_file = audio_file.rsplit(".", 1)[0] + ".opus"
-    
-    return audio_file
-
-def extract_title(url: str) -> str:
-    """Extract audio from YouTube video."""
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'opus',
-        }],
-        'outtmpl': os.path.join(UPLOAD_DIRECTORY, '%(title)s.%(ext)s')
-    }
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=False)
         video_title = info_dict.get('title', None)
     
-    return video_title
+    return audio_file, video_title
 
 def transcribe_audio(audio_path: str) -> str:
     """Transcribe audio using Gemini."""
@@ -188,7 +172,6 @@ def transcribe_audio(audio_path: str) -> str:
 
         else: 
             model = genai.GenerativeModel(model_name)
-#            genai_file = genai.upload_file(path=f"{audio_path}")
             response = model.generate_content(
                     [system_prompt,
                     {
@@ -221,16 +204,6 @@ def summarize_text(text: str) -> str:
         print(f"Summarization error: {e}")
         return f"Summarization failed: {str(e)}"
     
-async def extract_audio_async(url: str) -> str:
-    """Extract audio asynchronously from YouTube video."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, extract_audio, url)
-
-async def extract_title_async(url: str) -> str:
-    """Extract title asynchronously from YouTube video."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, extract_title, url)
-
 @app.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_youtube_video(
     request: Request, 
@@ -267,10 +240,9 @@ async def transcribe_youtube_video(
             )
         
         # Run extract_audio and extract_title in parallel
-        audio_path, video_title = await asyncio.gather(
-            extract_audio_async(transcription_request.youtube_url),
-            extract_title_async(transcription_request.youtube_url)
-        )
+        audio_path, video_title = extract_audio(transcription_request.youtube_url)
+#            extract_title_async(transcription_request.youtube_url)
+#        )
         
         # Transcribe
         print("Transcribing audio...")
