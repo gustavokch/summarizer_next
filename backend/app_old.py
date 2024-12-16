@@ -1,4 +1,3 @@
-import asyncio
 import os
 import pathlib
 import uuid
@@ -86,7 +85,7 @@ class TranscriptionResponse(BaseModel):
     summary: str
 
 # FastAPI App Setup
-app = FastAPI(title="Video Transcription Service")
+app = FastAPI(title="YouTube Transcription Service")
 
 # CORS Middleware
 app.add_middleware(
@@ -213,7 +212,8 @@ def summarize_text(text: str) -> str:
         model = genai.GenerativeModel(model_name,system_instruction=summarize_prompt)
         response = model.generate_content(
             f"{text}",
-            generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.3)
+            generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.3
+            )
         )
         return response.text
     
@@ -221,16 +221,6 @@ def summarize_text(text: str) -> str:
         print(f"Summarization error: {e}")
         return f"Summarization failed: {str(e)}"
     
-async def extract_audio_async(url: str) -> str:
-    """Extract audio asynchronously from YouTube video."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, extract_audio, url)
-
-async def extract_title_async(url: str) -> str:
-    """Extract title asynchronously from YouTube video."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, extract_title, url)
-
 @app.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_youtube_video(
     request: Request, 
@@ -266,12 +256,9 @@ async def transcribe_youtube_video(
                 summary=existing_task.summary
             )
         
-        # Run extract_audio and extract_title in parallel
-        audio_path, video_title = await asyncio.gather(
-            extract_audio_async(transcription_request.youtube_url),
-            extract_title_async(transcription_request.youtube_url)
-        )
-        
+        # Extract audio
+        audio_path = extract_audio(transcription_request.youtube_url)
+        video_title = extract_title(transcription_request.youtube_url)
         # Transcribe
         print("Transcribing audio...")
         transcription = transcribe_audio(audio_path)
@@ -280,8 +267,7 @@ async def transcribe_youtube_video(
         # Summarize
         print("Summarizing text...")
         summary = summarize_text(transcription)
-        print("Text summarized!")
-        
+        print("Text summarized!")        
         # Store task in database
         task = TranscriptionTask(
             session_id=session_id,
@@ -330,71 +316,6 @@ async def get_user_tasks(
         ) for task in tasks
     ]
 
-@app.delete("/tasks/{task_id}")
-async def delete_task(
-    task_id: int,
-    request: Request, 
-    response: Response,
-    db: Session = Depends(get_db)
-):
-    """
-    Delete a specific task for the current user session.
-    
-    Args:
-        task_id (int): The ID of the task to delete
-        request (Request): The incoming HTTP request
-        response (Response): The HTTP response to potentially modify
-        db (Session): Database session dependency
-    
-    Returns:
-        dict: A confirmation message about the deletion
-    """
-    try:
-        # Get the current session ID
-        session_id = create_or_get_session(request, response, db)
-        
-        # Find the task, ensuring it belongs to the current session
-        task = db.query(TranscriptionTask).filter(
-            and_(
-                TranscriptionTask.id == task_id,
-                TranscriptionTask.session_id == session_id
-            )
-        ).first()
-        
-        # If task not found, raise a 404 error
-        if not task:
-            raise HTTPException(
-                status_code=404, 
-                detail="Task not found or not authorized for deletion"
-            )
-        
-        # Optional: Remove the audio file if you want to clean up storage
-        try:
-            if task.audio_path and os.path.exists(task.audio_path):
-                os.remove(task.audio_path)
-        except Exception as file_error:
-            # Log the file deletion error but don't prevent task deletion
-            print(f"Could not delete audio file: {file_error}")
-        
-        # Delete the task from the database
-        db.delete(task)
-        db.commit()
-        
-        return {"message": "Task deleted successfully"}
-    
-    except SQLAlchemyError as db_error:
-        # Handle database-related errors
-        db.rollback()
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Database error during task deletion: {str(db_error)}"
-        )
-    except Exception as e:
-        # Catch any unexpected errors
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Unexpected error during task deletion: {str(e)}"
-        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8090)

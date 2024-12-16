@@ -5,5 +5,8 @@ venv
 /frontend
 .vscode/launch.json
 /backend/venv
+/backend/uploads
 /backend/api_key
 /backend/transcription_db.sqlite
+frontend.zip
+transcription_db.sqlite
