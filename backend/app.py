@@ -99,7 +99,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Origins that are allowed to access your backend
+    allow_origins=["*"],  # Origins that are allowed to access your backend
     allow_credentials=True,  # Allow cookies to be sent
     allow_methods=["*"],  # HTTP methods allowed
     allow_headers=["*"],  # HTTP headers allowed
