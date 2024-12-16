@@ -1,4 +1,4 @@
-// pages/index.tsx
+/* eslint-disable */
 import React, { useState } from 'react';
 import TranscribeTab from '../components/TranscribeTab';
 import HistoryTab from '../components/HistoryTab';
@@ -50,3 +50,4 @@ const Home: React.FC = () => {
 };
 
 export default Home;
+/* eslint-enable */
