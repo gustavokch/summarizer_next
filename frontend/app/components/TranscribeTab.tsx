@@ -1,5 +1,5 @@
-// components/TranscribeTab.tsx
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { transcribeVideo } from '../services/api';
 import { TranscribeResponse } from '../types';
 
@@ -10,19 +10,30 @@ interface TranscribeTabProps {
 const TranscribeTab: React.FC<TranscribeTabProps> = ({ onTranscriptionComplete }) => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
 
     try {
+      // Show loading toast
+      const loadingToast = toast.loading('Processing video... This may take a few moments.');
+
       const transcription = await transcribeVideo(youtubeUrl);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+
+      // Show success toast
+      toast.success('Video transcription completed successfully');
+      
       onTranscriptionComplete(transcription);
       setYoutubeUrl('');
     } catch (err) {
-      setError('Failed to transcribe video. Please try again.');
+      // Show error toast
+      toast.error('Failed to transcribe video. Please try again.', {
+        description: err instanceof Error ? err.message : 'An unknown error occurred'
+      });
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -46,25 +57,14 @@ const TranscribeTab: React.FC<TranscribeTabProps> = ({ onTranscriptionComplete }
             className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        {error && (
-          <div className="text-red-500 bg-red-100 p-2 rounded-md">
-            {error}
-          </div>
-        )}
         <button
           type="submit"
-          disabled={isLoading}
+//          disabled={isLoading}
           className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 disabled:bg-blue-300"
         >
-          {isLoading ? 'Summarizing...' : 'Summarize'}
+          Summarize
         </button>
       </form>
-
-      {isLoading && (
-        <div className="mt-4 text-center text-gray-500">
-          Processing video... This may take a few moments.
-        </div>
-      )}
     </div>
   );
 };

@@ -168,39 +168,45 @@ async def extract_audio(url: str) -> tuple[str, str]:
     
     return audio_file, video_title
 
+async def get_file_size(file_path):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, os.path.getsize, file_path)
+
 async def transcribe_audio(audio_path: str) -> str:
     """Asynchronously transcribe audio using Gemini."""
     if not genai:
         return "Transcription service is currently unavailable."
     
     try:
+        file_size = await get_file_size(file_path=audio_path)
+        if file_size > 20971520:
         # Use aiofiles for async file size check and reading
-        async with aiofiles.open(audio_path, 'rb') as file:
-            file_size = (await file.tell())
-            await file.seek(0)
-            print("Transcribing audio...")
-            if file_size > 20971520:
+            async with aiofiles.open(audio_path, 'rb') as file:
+                await file.seek(0)
                 model = genai.GenerativeModel(model_name)
                 # Async file upload
                 genai_file = await asyncio.to_thread(genai.upload_file, path=audio_path)
+                print("Transcribing audio...")
                 response = await asyncio.to_thread(
                     model.generate_content,
                     [system_prompt, genai_file],
                     generation_config=genai.GenerationConfig(temperature=0.1)
                 )
-                return response.text
+            return response.text
 
-            else:
+        else:
+            async with aiofiles.open(audio_path, 'rb') as file:
                 model = genai.GenerativeModel(model_name)
                 file_data = await file.read()
+                print("Transcribing audio...")
                 response = await asyncio.to_thread(
                     model.generate_content,
-                    [system_prompt, {
-                        "mime_type": "audio/mp3",
-                        "data": file_data
-                    }],
-                    generation_config=genai.GenerationConfig(temperature=0.1)
-                )
+                        [system_prompt, {
+                            "mime_type": "audio/mp3",
+                            "data": file_data
+                        }],
+                        generation_config=genai.GenerationConfig(temperature=0.1)
+                    )
                 return response.text
 
     except Exception as e:
