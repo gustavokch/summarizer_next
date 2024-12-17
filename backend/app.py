@@ -1,4 +1,6 @@
 import asyncio
+import aiofiles
+import functools
 import os
 import pathlib
 import uuid
@@ -100,7 +102,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Origins that are allowed to access your backend
+    allow_origins=["*"],  # Origins that are allowed to access your backend
     allow_credentials=True,  # Allow cookies to be sent
     allow_methods=["*"],  # HTTP methods allowed
     allow_headers=["*"],  # HTTP headers allowed
@@ -144,9 +146,10 @@ def create_or_get_session(request: Request, response: Response, db: Session) -> 
     
     return session_cookie
 
-def extract_audio(url: str) -> str:
-    """Extract audio from YouTube video."""
+async def extract_audio(url: str) -> tuple[str, str]:
+    """Asynchronously extract audio from YouTube video."""
     ydl_opts = {
+        'proxy': 'socks5://dante_user:uygbnjH0112@100.115.246.43:1080',
         'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -155,64 +158,103 @@ def extract_audio(url: str) -> str:
         'outtmpl': os.path.join(UPLOAD_DIRECTORY, '%(title)s.%(ext)s')
     }
     
+    # Use run_in_executor to make yt-dlp operations async
+    loop = asyncio.get_running_loop()
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=True)
-        audio_file = ydl.prepare_filename(info_dict)
+        info_dict = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=True))
+        audio_file = await loop.run_in_executor(None, lambda: ydl.prepare_filename(info_dict))
         audio_file = audio_file.rsplit(".", 1)[0] + ".opus"
         video_title = info_dict.get('title', None)
     
     return audio_file, video_title
 
-def transcribe_audio(audio_path: str) -> str:
-    """Transcribe audio using Gemini."""
+async def transcribe_audio(audio_path: str) -> str:
+    """Asynchronously transcribe audio using Gemini."""
     if not genai:
         return "Transcription service is currently unavailable."
     
     try:
-        file_size = os.path.getsize(f"{audio_path}")
-        if file_size > 20971520:
-            model = genai.GenerativeModel(model_name)
-            genai_file = genai.upload_file(path=f"{audio_path}")
-            response = model.generate_content(
+        # Use aiofiles for async file size check and reading
+        async with aiofiles.open(audio_path, 'rb') as file:
+            file_size = (await file.tell())
+            await file.seek(0)
+            print("Transcribing audio...")
+            if file_size > 20971520:
+                model = genai.GenerativeModel(model_name)
+                # Async file upload
+                genai_file = await asyncio.to_thread(genai.upload_file, path=audio_path)
+                response = await asyncio.to_thread(
+                    model.generate_content,
                     [system_prompt, genai_file],
-                    generation_config = genai.GenerationConfig(temperature=0.1)
-            )     
-            return response.text
+                    generation_config=genai.GenerationConfig(temperature=0.1)
+                )
+                return response.text
 
-        else: 
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(
-                    [system_prompt,
-                    {
+            else:
+                model = genai.GenerativeModel(model_name)
+                file_data = await file.read()
+                response = await asyncio.to_thread(
+                    model.generate_content,
+                    [system_prompt, {
                         "mime_type": "audio/mp3",
-                        "data": pathlib.Path(f"{audio_path}").read_bytes()
-                    }
-                    ],
-                    generation_config = genai.GenerationConfig(temperature=0.1)
-            )     
-            return response.text
+                        "data": file_data
+                    }],
+                    generation_config=genai.GenerationConfig(temperature=0.1)
+                )
+                return response.text
 
     except Exception as e:
         print(f"Transcription error: {e}")
         return f"Transcription failed: {str(e)}"
 
-def summarize_text(text: str) -> str:
-    """Summarize transcribed text using Gemini."""
+async def summarize_text(text: str) -> str:
+    """Asynchronously summarize transcribed text using Gemini."""
     if not genai:
         return "Summary service is currently unavailable."
     
     try:
-        model = genai.GenerativeModel(model_name,system_instruction=summarize_prompt)
-        response = model.generate_content(
+        print("Summarizing text...")
+        model = genai.GenerativeModel(model_name, system_instruction=summarize_prompt)
+        response = await asyncio.to_thread(
+            model.generate_content,
             f"{text}",
-            generation_config = genai.GenerationConfig(max_output_tokens=8191, temperature=0.3)
+            generation_config=genai.GenerationConfig(max_output_tokens=8191, temperature=0.3)
         )
         return response.text
     
     except Exception as e:
         print(f"Summarization error: {e}")
         return f"Summarization failed: {str(e)}"
+
+async def process_youtube_video(url: str) -> dict:
+    """
+    Async workflow to extract audio, transcribe, and summarize.
     
+    Returns a dictionary with processing results.
+    """
+    try:
+        # Extract audio
+        audio_file, video_title = await extract_audio(url)
+        
+        # Transcribe audio
+        transcription = await transcribe_audio(audio_file)
+        
+        # Summarize transcription
+        summary = await summarize_text(transcription)
+        
+        return {
+            'video_title': video_title,
+            'audio_file': audio_file,
+            'transcription': transcription,
+            'summary': summary
+        }
+    
+    except Exception as e:
+        return {
+            'error': str(e)
+        }
+
+
 @app.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_youtube_video(
     request: Request, 
@@ -247,30 +289,17 @@ async def transcribe_youtube_video(
                 transcription=existing_task.transcription,
                 summary=existing_task.summary
             )
-        
-        # Run extract_audio and extract_title in parallel
-        audio_path, video_title = extract_audio(transcription_request.youtube_url)
-#            extract_title_async(transcription_request.youtube_url)
-#        )
-        
-        # Transcribe
-        print("Transcribing audio...")
-        transcription = transcribe_audio(audio_path)
-        print("Audio transcribed!")
-        
-        # Summarize
-        print("Summarizing text...")
-        summary = summarize_text(transcription)
-        print("Text summarized!")
-        
+
+#        video_title, audio_file, transcription, summary = await process_youtube_video(transcription_request.youtube_url)
+        result = await process_youtube_video(transcription_request.youtube_url)
         # Store task in database
         task = TranscriptionTask(
             session_id=session_id,
             video_url=transcription_request.youtube_url,
-            video_title=video_title,
-            audio_path=audio_path,
-            transcription=transcription,
-            summary=summary
+            video_title=result.get('video_title'),
+            audio_path=result.get('audio_file'),
+            transcription=result.get('transcription'),
+            summary=result.get('summary')
         )
         db.add(task)
         db.commit()
@@ -280,9 +309,9 @@ async def transcribe_youtube_video(
         return TranscriptionResponse(
             task_id=str(task.id),
             video_url=transcription_request.youtube_url,
-            video_title=video_title,
-            transcription=transcription,
-            summary=summary
+            video_title=result.get('video_title'),
+            transcription=result.get('transcription'),
+            summary=result.get('summary')
         )
     
     except Exception as e:

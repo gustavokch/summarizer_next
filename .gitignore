@@ -12,3 +12,6 @@ venv
 frontend.zip
 transcription_db.sqlite
 backend/.env
+backend/app_auth.py
+backend/app_auth2.py
+backend/app_proxied.py
