@@ -47,8 +47,8 @@ To get this API running on your local machine, follow the steps below.
 
 1. Clone the repository:
    ```bash
-   git clone <repository_url>
-   cd <project_directory>
+   git clone <[repository_ur](https://github.com/gustavokch/summarizer_next)l>
+   cd <summarizer_next>
    ```
 
 2. Install dependencies:
