@@ -1,7 +1,3 @@
-Here's a complete **README.md** for your app:
-
----
-
 # Video Transcription and Summarization API
 
 This FastAPI-based application allows users to transcribe and summarize YouTube videos. It extracts audio, transcribes it using Google's Gemini API, and generates a summarized version of the transcription. The results are stored in a local SQLite database.
