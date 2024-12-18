@@ -27,7 +27,7 @@ export default function RootLayout({
             </div>
           </header>
           <ToastProvider />          
-          <main className="min-w-96 max-w-full flex-grow container mx-auto px-4 py-6">
+          <main className="min-w-screen max-w-full flex-grow container mx-auto px-4 py-6">
             {children}
           </main>
         </div>
