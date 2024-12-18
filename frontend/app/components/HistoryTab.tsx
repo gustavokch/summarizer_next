@@ -6,8 +6,8 @@ import { TranscriptionTask } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Button } from "../ui/button";
-import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import { toast } from "sonner"; // Assuming you're using a toast library
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { toast } from "sonner";
 
 const HistoryTab: React.FC = () => {
   const [tasks, setTasks] = useState<TranscriptionTask[]>([])
@@ -17,14 +17,12 @@ const HistoryTab: React.FC = () => {
   const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(true)
   const [isSummaryOpen, setIsSummaryOpen] = useState(true)
   const [hoverTaskId, setHoverTaskId] = useState<string | null>(null)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true)
 
-  // Reload tasks function to be used after deletion
   const reloadTasks = async () => {
     try {
       const userTasks = await fetchUserTasks()
       setTasks(userTasks)
-      
-      // Reset selected task if current selection is deleted
       if (selectedTask && 
           !userTasks.some(task => task.task_id === selectedTask.task_id)) {
         setSelectedTask(null)
@@ -35,8 +33,7 @@ const HistoryTab: React.FC = () => {
   }
 
   const handleDeleteTask = async (taskId: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent task selection when deleting
-    
+    event.stopPropagation();
     try {
       await deleteTask(taskId);
       toast.success('Task deleted successfully');
@@ -77,72 +74,90 @@ const HistoryTab: React.FC = () => {
 
   return (
     <div className="w-full p-6 flex flex-col md:flex-row h-full">
-      <div className="w-full md:w-1/4 pr-4 border-r mb-4 md:mb-0">
-        <h2 className="font-bold mb-4">History</h2>
-        {tasks.length === 0 ? (
-          <p className="text-gray-500">No transcription tasks yet</p>
-        ) : (
-          <ul className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {tasks.map((task) => (
-              <li 
-                key={task.task_id}
-                onMouseEnter={() => setHoverTaskId(task.task_id)}
-                onMouseLeave={() => setHoverTaskId(null)}
-                onClick={() => handleTaskSelect(task)}
-                className={`
-                  relative 
+      <div className={`
+        transition-all duration-300 ease-in-out
+        ${isHistoryOpen ? 'w-full md:w-1/4' : 'w-auto'}
+        border-r mb-4 md:mb-0
+      `}>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="font-bold">History</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            className="p-1"
+          >
+            {isHistoryOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          </Button>
+        </div>
 
-                  rounded-md 
-                  cursor-pointer 
-                  group 
-                  ${selectedTask?.task_id === task.task_id 
-                    ? 'bg-blue-100' 
-                    : 'hover:bg-gray-100'
-                  }
-                `}
-              >
-                <div className="font-semibold flex items-center justify-between">
-                  <span>{task.video_title}</span>
-                  
-                  {/* Delete Button */}
-                  {hoverTaskId === task.task_id && (
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      className="opacity-70 hover:opacity-100"
-                      onClick={(e) => handleDeleteTask(task.task_id, e)}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+        {isHistoryOpen && (
+          tasks.length === 0 ? (
+            <p className="text-gray-500">No transcription tasks yet</p>
+          ) : (
+            <ul className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-4">
+              {tasks.map((task) => (
+                <li 
+                  key={task.task_id}
+                  onMouseEnter={() => setHoverTaskId(task.task_id)}
+                  onMouseLeave={() => setHoverTaskId(null)}
+                  onClick={() => handleTaskSelect(task)}
+                  className={`
+                    relative 
+                    p-2
+                    rounded-md 
+                    cursor-pointer 
+                    group 
+                    ${selectedTask?.task_id === task.task_id 
+                      ? 'bg-blue-100' 
+                      : 'hover:bg-gray-100'
+                    }
+                  `}
+                >
+                  <div className="font-semibold flex items-center justify-between">
+                    <span>{task.video_title}</span>
+                    
+                    {hoverTaskId === task.task_id && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="opacity-70 hover:opacity-100"
+                        onClick={(e) => handleDeleteTask(task.task_id, e)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
         )}
       </div>
 
-      <div className="w-full p-2 md:w-3/4 pl-4 flex-grow overflow-hidden">
-      {selectedTask ? (
-        <div className="h-full flex flex-col">
-          <h3 className="text-xl font-bold mb-2 truncate">
-            {selectedTask.video_title}
-          </h3>
-          <h4 className="text-small font-regular mb-2 truncate">
-            URL:&nbsp; 
-            <a
-              href={selectedTask.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              {selectedTask.video_url}
-            </a>
-          </h4>
-          <div className="overflow-y-auto space-y-4">
-
-
-            <Collapsible open={isSummaryOpen} onOpenChange={setIsSummaryOpen}>
+      <div className={`
+        transition-all duration-300 ease-in-out
+        ${isHistoryOpen ? 'w-full md:w-3/4' : 'w-full'}
+        p-2 pl-4 flex-grow overflow-hidden
+      `}>
+        {selectedTask ? (
+          <div className="h-full flex flex-col">
+            <h3 className="text-xl font-bold mb-2 truncate">
+              {selectedTask.video_title}
+            </h3>
+            <h4 className="text-small font-regular mb-2 truncate">
+              URL:&nbsp; 
+              <a
+                href={selectedTask.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                {selectedTask.video_url}
+              </a>
+            </h4>
+            <div className="overflow-y-auto space-y-4">
+              <Collapsible open={isSummaryOpen} onOpenChange={setIsSummaryOpen}>
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold">Summary</h4>
                   <CollapsibleTrigger asChild>
@@ -173,7 +188,6 @@ const HistoryTab: React.FC = () => {
                   </p>
                 </CollapsibleContent>
               </Collapsible>
-
             </div>
           </div>
         ) : (
