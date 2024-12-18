@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { transcribeVideo } from '../services/api';
 import { TranscribeResponse } from '../types';
@@ -10,20 +10,38 @@ interface TranscribeTabProps {
 const TranscribeTab: React.FC<TranscribeTabProps> = ({ onTranscriptionComplete }) => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const activeTasksRef = useRef(0);
+  const loadingToastIdRef = useRef<string | number | null>(null);
+
+  const updateLoadingToast = () => {
+    if (activeTasksRef.current > 0) {
+      const message = activeTasksRef.current === 1
+        ? 'Processing video... This may take a few moments.'
+        : `Processing ${activeTasksRef.current} videos... This may take a few moments.`;
+      
+      if (loadingToastIdRef.current) {
+        toast.dismiss(loadingToastIdRef.current);
+      }
+      loadingToastIdRef.current = toast.loading(message);
+    } else {
+      if (loadingToastIdRef.current) {
+        toast.dismiss(loadingToastIdRef.current);
+        loadingToastIdRef.current = null;
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Show loading toast
-      const loadingToast = toast.loading('Processing video... This may take a few moments.');
+      // Increment active tasks counter and update toast
+      activeTasksRef.current += 1;
+      updateLoadingToast();
 
       const transcription = await transcribeVideo(youtubeUrl);
       
-      // Dismiss loading toast
-      toast.dismiss(loadingToast);
-
       // Show success toast
       toast.success('Video transcription completed successfully');
       
@@ -36,6 +54,9 @@ const TranscribeTab: React.FC<TranscribeTabProps> = ({ onTranscriptionComplete }
       });
       console.error(err);
     } finally {
+      // Decrement active tasks counter and update toast
+      activeTasksRef.current = Math.max(0, activeTasksRef.current - 1);
+      updateLoadingToast();
       setIsLoading(false);
     }
   };
@@ -59,7 +80,6 @@ const TranscribeTab: React.FC<TranscribeTabProps> = ({ onTranscriptionComplete }
         </div>
         <button
           type="submit"
-//          disabled={isLoading}
           className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 disabled:bg-blue-300"
         >
           Summarize

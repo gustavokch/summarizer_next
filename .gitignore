@@ -15,3 +15,4 @@ backend/.env
 backend/app_auth.py
 backend/app_auth2.py
 backend/app_proxied.py
+frontend/app/components/TranscribeTab.tsx.bak
