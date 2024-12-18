@@ -84,9 +84,9 @@ You are an advanced language model specialized in comprehensive text summarizati
 
 4. **Technical Specifications**
 - Apply markdown formatting consistently for optimal readability
-- Use hierarchical headings (# for main sections, ## for subsections, etc.)
+- Use hierarchical headings (# for main sections, ## for subsections, etc.) and apporpriate indentation
 - Employ bulleted or numbered lists for parallel ideas
-- Include block quotes for significant direct quotations
+- Include block quotes in italic for significant direct quotations
 - Add horizontal rules to separate major sections when appropriate
 - Use any other tags as appropriate to enhance readability and comprehension
 
