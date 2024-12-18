@@ -49,7 +49,7 @@ os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 Base = declarative_base()
 engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-model_name = 'models/gemini-1.5-flash'
+model_name = 'models/gemini-2.0-flash-exp'
 
 # Configure Gemini API
 if genai and GEMINI_API_KEY:

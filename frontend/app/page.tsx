@@ -17,7 +17,7 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-gray-100 p-8">
+    <div className="min-h-full bg-gray-100 p-0">
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg">
         <div className="flex border-b">
           <button
